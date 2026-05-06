@@ -1,0 +1,166 @@
+// Sample data for when the API is unavailable
+export const sampleProjects = [
+  {
+    id: '1',
+    name: 'Core Banking API',
+    description: 'Mission-critical banking API handling transactions and account management.',
+    status: 'active',
+    tech_stack: ['Django', 'PostgreSQL', 'Docker'],
+    last_scan: '2024-01-15T10:30:00Z',
+    pipeline_status: 'passed',
+    findings_summary: { critical: 3, high: 12, medium: 28, low: 45 },
+  },
+  {
+    id: '2',
+    name: 'Payment Gateway Service',
+    description: 'Handles payment processing and PCI-DSS compliance for all transactions.',
+    status: 'active',
+    tech_stack: ['FastAPI', 'Redis', 'Kubernetes'],
+    last_scan: '2024-01-15T08:00:00Z',
+    pipeline_status: 'failed',
+    findings_summary: { critical: 7, high: 18, medium: 41, low: 23 },
+  },
+  {
+    id: '3',
+    name: 'Customer Portal Frontend',
+    description: 'React-based customer-facing portal with authentication and dashboard.',
+    status: 'active',
+    tech_stack: ['React', 'Node.js', 'Docker'],
+    last_scan: '2024-01-14T22:15:00Z',
+    pipeline_status: 'running',
+    findings_summary: { critical: 1, high: 5, medium: 15, low: 32 },
+  },
+  {
+    id: '4',
+    name: 'Internal Analytics Platform',
+    description: 'Business intelligence dashboard with real-time data visualization.',
+    status: 'active',
+    tech_stack: ['Vue', 'Django', 'PostgreSQL'],
+    last_scan: '2024-01-14T16:45:00Z',
+    pipeline_status: 'passed',
+    findings_summary: { critical: 0, high: 3, medium: 11, low: 19 },
+  },
+  {
+    id: '5',
+    name: 'Mobile Backend Services',
+    description: 'RESTful API services powering the iOS and Android mobile applications.',
+    status: 'active',
+    tech_stack: ['Spring Boot', 'PostgreSQL', 'Docker'],
+    last_scan: '2024-01-13T12:00:00Z',
+    pipeline_status: 'passed',
+    findings_summary: { critical: 2, high: 8, medium: 22, low: 41 },
+  },
+  {
+    id: '6',
+    name: 'Legacy CRM System',
+    description: 'Customer relationship management system undergoing modernization.',
+    status: 'archived',
+    tech_stack: ['Node.js', 'PostgreSQL'],
+    last_scan: '2023-12-01T09:00:00Z',
+    pipeline_status: 'skipped',
+    findings_summary: { critical: 0, high: 0, medium: 4, low: 9 },
+  },
+];
+
+export const sampleOverview = {
+  total: 312,
+  critical: 13,
+  high: 46,
+  medium: 117,
+  low: 136,
+  findings_over_time: Array.from({ length: 30 }, (_, i) => ({
+    date: new Date(Date.now() - (29 - i) * 86400000).toISOString().split('T')[0],
+    critical: Math.floor(Math.random() * 5) + 8,
+    high: Math.floor(Math.random() * 15) + 30,
+    medium: Math.floor(Math.random() * 20) + 80,
+    low: Math.floor(Math.random() * 30) + 100,
+  })),
+  by_scanner: [
+    { scanner: 'SonarQube', count: 98 },
+    { scanner: 'OWASP ZAP', count: 74 },
+    { scanner: 'Trivy', count: 63 },
+    { scanner: 'Semgrep', count: 48 },
+    { scanner: 'Bandit', count: 29 },
+  ],
+  ai_score_distribution: [
+    { range: '0–2', count: 45 },
+    { range: '2–4', count: 78 },
+    { range: '4–6', count: 89 },
+    { range: '6–8', count: 67 },
+    { range: '8–10', count: 33 },
+  ],
+  recent_critical: [
+    { id: 'f1', title: 'SQL Injection in user authentication endpoint', severity: 'critical', scanner: 'SonarQube', ai_score: 9.2, date: '2024-01-15T10:30:00Z' },
+    { id: 'f2', title: 'Deserialization vulnerability in session handler', severity: 'critical', scanner: 'Semgrep', ai_score: 8.7, date: '2024-01-15T09:15:00Z' },
+    { id: 'f3', title: 'Hardcoded AWS credentials in config file', severity: 'critical', scanner: 'Bandit', ai_score: 9.8, date: '2024-01-14T22:00:00Z' },
+    { id: 'f4', title: 'Command injection via unsanitized shell argument', severity: 'critical', scanner: 'Semgrep', ai_score: 9.1, date: '2024-01-14T18:30:00Z' },
+    { id: 'f5', title: 'Log4Shell vulnerability (CVE-2021-44228)', severity: 'critical', scanner: 'Trivy', ai_score: 9.9, date: '2024-01-14T12:00:00Z' },
+  ],
+};
+
+export const sampleFindings = {
+  items: [
+    { id: 'f1', title: 'SQL Injection in user authentication endpoint', severity: 'critical', scanner: 'SonarQube', cvss: 9.8, ai_score: 9.2, epss: 0.9432, status: 'open', assigned: 'Alice Chen', date: '2024-01-15T10:30:00Z', cve_id: 'CVE-2023-44487' },
+    { id: 'f2', title: 'Deserialization vulnerability in session handler', severity: 'critical', scanner: 'Semgrep', cvss: 8.8, ai_score: 8.7, epss: 0.7823, status: 'in_progress', assigned: 'Bob Kim', date: '2024-01-15T09:15:00Z', cve_id: null },
+    { id: 'f3', title: 'Hardcoded AWS credentials in config.py', severity: 'critical', scanner: 'Bandit', cvss: 9.1, ai_score: 9.8, epss: 0.8901, status: 'open', assigned: null, date: '2024-01-14T22:00:00Z', cve_id: null },
+    { id: 'f4', title: 'Cross-Site Scripting (XSS) in user profile page', severity: 'high', scanner: 'OWASP ZAP', cvss: 7.4, ai_score: 6.8, epss: 0.4512, status: 'open', assigned: 'Carol Wu', date: '2024-01-14T18:30:00Z', cve_id: 'CVE-2023-38408' },
+    { id: 'f5', title: 'Log4Shell vulnerability in logging framework', severity: 'critical', scanner: 'Trivy', cvss: 10.0, ai_score: 9.9, epss: 0.9987, status: 'closed', assigned: 'Alice Chen', date: '2024-01-14T12:00:00Z', cve_id: 'CVE-2021-44228' },
+    { id: 'f6', title: 'Insecure direct object reference in API endpoint', severity: 'high', scanner: 'SonarQube', cvss: 7.5, ai_score: 7.1, epss: 0.5234, status: 'open', assigned: 'Dan Lee', date: '2024-01-13T15:00:00Z', cve_id: null },
+    { id: 'f7', title: 'Missing security headers (CSP, HSTS)', severity: 'medium', scanner: 'OWASP ZAP', cvss: 5.3, ai_score: 3.8, epss: 0.1234, status: 'accepted', assigned: 'Carol Wu', date: '2024-01-13T10:00:00Z', cve_id: null },
+    { id: 'f8', title: 'Outdated OpenSSL with known CVE', severity: 'high', scanner: 'Trivy', cvss: 7.8, ai_score: 8.1, epss: 0.6789, status: 'open', assigned: 'Bob Kim', date: '2024-01-12T20:00:00Z', cve_id: 'CVE-2023-0286' },
+    { id: 'f9', title: 'Weak password hashing algorithm (MD5)', severity: 'medium', scanner: 'Bandit', cvss: 5.9, ai_score: 4.5, epss: 0.2345, status: 'in_progress', assigned: 'Alice Chen', date: '2024-01-12T14:00:00Z', cve_id: null },
+    { id: 'f10', title: 'Directory traversal in file upload endpoint', severity: 'high', scanner: 'Semgrep', cvss: 7.2, ai_score: 7.8, epss: 0.5678, status: 'open', assigned: null, date: '2024-01-11T11:00:00Z', cve_id: null },
+  ],
+  total: 312,
+  page: 1,
+  page_size: 25,
+};
+
+export const sampleNotifications = [
+  { id: 'n1', type: 'finding', title: 'New Critical Finding', message: 'SQL Injection detected in Core Banking API by SonarQube scanner.', time: '2024-01-15T10:35:00Z', read: false },
+  { id: 'n2', type: 'pipeline', title: 'Pipeline Failed', message: 'Payment Gateway Service security scan failed with 3 new critical vulnerabilities.', time: '2024-01-15T09:00:00Z', read: false },
+  { id: 'n3', type: 'jira', title: 'Jira Ticket Created', message: 'SEC-142 created for "Hardcoded AWS credentials" finding automatically.', time: '2024-01-15T08:30:00Z', read: true },
+  { id: 'n4', type: 'system', title: 'AI Model Retrained', message: 'The ML risk scoring model was retrained on 1,247 new labeled findings. Accuracy: 94.2%.', time: '2024-01-14T20:00:00Z', read: true },
+  { id: 'n5', type: 'finding', title: 'Finding Closed', message: 'Log4Shell vulnerability (CVE-2021-44228) was marked as closed in Customer Portal.', time: '2024-01-14T16:00:00Z', read: true },
+];
+
+export const samplePipeline = {
+  runs: [
+    {
+      id: 'r1',
+      run_number: 142,
+      triggered_by: 'Alice Chen',
+      branch: 'main',
+      status: 'failed',
+      duration: '8m 23s',
+      date: '2024-01-15T08:00:00Z',
+      scanners: [
+        { name: 'SonarQube', status: 'passed', findings: 12, duration: '2m 15s' },
+        { name: 'OWASP ZAP', status: 'failed', findings: 7, duration: '3m 42s' },
+        { name: 'Trivy', status: 'passed', findings: 3, duration: '1m 08s' },
+        { name: 'Semgrep', status: 'passed', findings: 5, duration: '1m 18s' },
+      ],
+    },
+    {
+      id: 'r2',
+      run_number: 141,
+      triggered_by: 'Bob Kim',
+      branch: 'feature/auth-refactor',
+      status: 'passed',
+      duration: '7m 45s',
+      date: '2024-01-14T14:30:00Z',
+      scanners: [
+        { name: 'SonarQube', status: 'passed', findings: 8, duration: '2m 05s' },
+        { name: 'OWASP ZAP', status: 'passed', findings: 4, duration: '3m 20s' },
+        { name: 'Trivy', status: 'passed', findings: 1, duration: '1m 02s' },
+        { name: 'Semgrep', status: 'passed', findings: 3, duration: '1m 18s' },
+      ],
+    },
+  ],
+  summary: {
+    sast: { status: 'failed', new_findings: 12, total: 89 },
+    dast: { status: 'failed', new_findings: 7, total: 34 },
+    sca: { status: 'passed', new_findings: 3, total: 156 },
+    secrets: { status: 'passed', new_findings: 0, total: 12 },
+  },
+};

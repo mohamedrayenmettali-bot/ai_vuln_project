@@ -23,3 +23,4 @@ class User(Base):
     sessions = relationship("AuthSession", back_populates="user", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
     password_reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
+    project_assignments = relationship("UserProjectAssignment", back_populates="user", cascade="all, delete-orphan")

@@ -1,18 +1,19 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import secrets
 import uuid
-import asyncio
 from datetime import datetime, timedelta, timezone
 
+import structlog
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.db.session import get_db_session
+from app.db.session import get_db_session, get_sessionmaker
 from app.db.models.auth_session import AuthSession
 from app.db.models.notification import Notification
 from app.db.models.password_reset_token import PasswordResetToken
@@ -27,6 +28,7 @@ from app.services.email import (
     send_password_reset_email,
 )
 
+logger = structlog.get_logger(__name__)
 security = HTTPBearer()
 
 ALLOWED_ROLES = {
@@ -90,6 +92,61 @@ async def _create_notification(
     return notification
 
 
+async def _background_sync_for_user(user_id: str, user_role: str) -> None:
+    """Run DefectDojo sync in the background after login.
+
+    Creates a fresh DB session so it is fully independent of the request
+    session that has already been committed and returned to the caller.
+    """
+    # Deferred imports to avoid circular dependencies.
+    from app.db.models.project import Project
+    from app.db.models.user_project_assignment import UserProjectAssignment
+    from app.services.dashboard import create_notification, sync_project_from_defectdojo
+
+    try:
+        async with get_sessionmaker()() as db:
+            # Notify user that sync has started.
+            await create_notification(
+                db,
+                user_id,
+                notification_type="sync",
+                title="DefectDojo sync started",
+                message="Synchronising projects from DefectDojo in the background.",
+            )
+            await db.commit()
+
+            # Determine which projects this user can access.
+            if user_role == "admin":
+                result = await db.execute(select(Project))
+            else:
+                result = await db.execute(
+                    select(Project)
+                    .join(UserProjectAssignment, UserProjectAssignment.project_id == Project.id)
+                    .where(UserProjectAssignment.user_id == user_id)
+                )
+            projects = result.scalars().all()
+
+            synced = 0
+            for project in projects:
+                try:
+                    await sync_project_from_defectdojo(db, project.id, actor_user_id=user_id)
+                    synced += 1
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("background_sync_project_failed", project_id=project.id, error=str(exc))
+
+            project_word = "project" if synced == 1 else "projects"
+            await create_notification(
+                db,
+                user_id,
+                notification_type="sync",
+                title="DefectDojo sync completed",
+                message=f"Synchronisation complete. {synced} {project_word} updated.",
+            )
+            await db.commit()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("background_sync_failed", user_id=user_id, error=str(exc))
+
+
 async def register_user(db: AsyncSession, payload: AuthRegisterRequest) -> AuthUser:
     email = _normalize_email(payload.email)
     role = _normalize_role(payload.role)
@@ -141,6 +198,10 @@ async def login_user(db: AsyncSession, payload: AuthLoginRequest) -> AuthRespons
     db.add(session)
     await db.commit()
     await db.refresh(user)
+
+    # Fire background sync without blocking login response.
+    asyncio.create_task(_background_sync_for_user(user.id, user.role))
+
     return AuthResponse(access_token=token, user=_to_public_user(user))
 
 
@@ -237,3 +298,4 @@ async def reset_password(db: AsyncSession, payload: PasswordResetRequest) -> dic
 
     await db.commit()
     return {"detail": "If an account exists for that email, reset instructions have been queued."}
+

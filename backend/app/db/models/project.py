@@ -1,4 +1,5 @@
 from sqlalchemy import Column, String, DateTime, Text, Enum
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.base import Base
 import enum
@@ -19,3 +20,5 @@ class Project(Base):
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    user_assignments = relationship("UserProjectAssignment", back_populates="project", cascade="all, delete-orphan")

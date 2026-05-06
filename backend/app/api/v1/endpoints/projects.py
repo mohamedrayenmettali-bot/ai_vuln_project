@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import get_current_user
 from app.db.models.finding import Finding
 from app.db.models.project import Project, ProjectStatus
+from app.db.models.user_project_assignment import UserProjectAssignment
 from app.db.session import get_db_session
 from app.schemas.auth import AuthUser
 from app.schemas.project import ProjectCreate, ProjectOut, ProjectUpdate
@@ -27,6 +28,42 @@ from app.services.dashboard import (
 )
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
+
+
+async def _get_accessible_project_ids(db: AsyncSession, current_user: AuthUser) -> list[str] | None:
+    """Return the list of project IDs the user may access.
+
+    Returns ``None`` for admin users (meaning: all projects are accessible).
+    """
+    if current_user.role == "admin":
+        return None
+    result = await db.execute(
+        select(UserProjectAssignment.project_id).where(
+            UserProjectAssignment.user_id == current_user.id
+        )
+    )
+    return [row[0] for row in result.all()]
+
+
+async def _assert_project_access(
+    db: AsyncSession,
+    project_id: str,
+    current_user: AuthUser,
+) -> None:
+    """Raise 403 if the current user does not have access to *project_id*."""
+    if current_user.role == "admin":
+        return
+    result = await db.execute(
+        select(UserProjectAssignment).where(
+            UserProjectAssignment.user_id == current_user.id,
+            UserProjectAssignment.project_id == project_id,
+        )
+    )
+    if result.scalars().first() is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this project.",
+        )
 
 
 def _escape_pdf_text(value: str) -> str:
@@ -87,14 +124,28 @@ async def _snapshot_project(db: AsyncSession, project: Project) -> dict[str, Any
 
 
 @router.get("/", response_model=list[ProjectOut])
-async def read_projects(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db_session)):
-    result = await db.execute(select(Project).order_by(Project.created_at.asc(), Project.id.asc()).offset(skip).limit(limit))
+async def read_projects(
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
+):
+    accessible_ids = await _get_accessible_project_ids(db, current_user)
+    query = select(Project).order_by(Project.created_at.asc(), Project.id.asc())
+    if accessible_ids is not None:
+        query = query.where(Project.id.in_(accessible_ids))
+    result = await db.execute(query.offset(skip).limit(limit))
     projects = result.scalars().all()
     return [await _snapshot_project(db, project) for project in projects]
 
 
 @router.get("/{project_id}/overview", summary="Project overview for dashboard charts")
-async def project_overview(project_id: str, db: AsyncSession = Depends(get_db_session)):
+async def project_overview(
+    project_id: str,
+    db: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
+):
+    await _assert_project_access(db, project_id, current_user)
     findings = await _load_findings(db, project_id)
     return build_overview(findings)
 
@@ -105,7 +156,9 @@ async def read_project_findings(
     skip: int = 0,
     limit: int = 100,
     db: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> list[dict[str, Any]]:
+    await _assert_project_access(db, project_id, current_user)
     result = await db.execute(
         select(Finding)
         .where(Finding.project_id == project_id)
@@ -123,8 +176,9 @@ async def export_project_findings_csv(
     skip: int = 0,
     limit: int = 1000,
     db: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> Response:
-    findings = await read_project_findings(project_id=project_id, skip=skip, limit=limit, db=db)
+    findings = await read_project_findings(project_id=project_id, skip=skip, limit=limit, db=db, current_user=current_user)
 
     buffer = StringIO()
     writer = csv.DictWriter(
@@ -155,7 +209,12 @@ async def export_project_findings_csv(
 
 
 @router.get("/{project_id}/pipeline", summary="Project pipeline snapshot")
-async def project_pipeline(project_id: str, db: AsyncSession = Depends(get_db_session)) -> dict[str, Any]:
+async def project_pipeline(
+    project_id: str,
+    db: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
+) -> dict[str, Any]:
+    await _assert_project_access(db, project_id, current_user)
     project = await get_project_or_404(db, project_id)
     findings = await _load_findings(db, project_id)
     return build_pipeline_snapshot(findings, project)
@@ -208,7 +267,12 @@ async def project_sync(
 
 
 @router.get("/{project_id}/settings", summary="Project integration settings")
-async def get_project_settings(project_id: str, db: AsyncSession = Depends(get_db_session)) -> dict[str, Any]:
+async def get_project_settings(
+    project_id: str,
+    db: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
+) -> dict[str, Any]:
+    await _assert_project_access(db, project_id, current_user)
     project = await get_project_or_404(db, project_id)
     from app.services.dashboard import load_project_settings
 
@@ -261,7 +325,9 @@ async def update_project_settings(
 async def get_project_jira_tickets(
     project_id: str,
     db: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> list[dict[str, Any]]:
+    await _assert_project_access(db, project_id, current_user)
     project = await get_project_or_404(db, project_id)
     findings = await _load_findings(db, project_id)
     from app.services.dashboard import load_project_settings
@@ -272,7 +338,12 @@ async def get_project_jira_tickets(
 
 
 @router.get("/{project_id}/export/pdf", summary="Export project report as PDF")
-async def export_project_pdf(project_id: str, db: AsyncSession = Depends(get_db_session)) -> Response:
+async def export_project_pdf(
+    project_id: str,
+    db: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
+) -> Response:
+    await _assert_project_access(db, project_id, current_user)
     project = await get_project_or_404(db, project_id)
     findings = await _load_findings(db, project_id)
     overview = build_overview(findings)
@@ -294,16 +365,30 @@ async def export_project_pdf(project_id: str, db: AsyncSession = Depends(get_db_
 
 
 @router.get("/{project_id}", response_model=ProjectOut)
-async def read_project(project_id: str, db: AsyncSession = Depends(get_db_session)):
+async def read_project(
+    project_id: str,
+    db: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
+):
+    await _assert_project_access(db, project_id, current_user)
     project = await get_project_or_404(db, project_id)
     findings = await _load_findings(db, project_id)
     return serialize_project(project, findings)
 
 
 @router.post("/", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)
-async def create_project(project: ProjectCreate, db: AsyncSession = Depends(get_db_session)):
+async def create_project(
+    project: ProjectCreate,
+    db: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
+):
     db_project = Project(**project.model_dump())
     db.add(db_project)
+    await db.flush()
+    # Non-admin creators are automatically assigned to the project they create.
+    if current_user.role != "admin":
+        assignment = UserProjectAssignment(user_id=current_user.id, project_id=db_project.id)
+        db.add(assignment)
     await db.commit()
     await db.refresh(db_project)
     return serialize_project(db_project, [])
@@ -314,7 +399,9 @@ async def update_project(
     project_id: str,
     project_update: ProjectUpdate,
     db: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
 ):
+    await _assert_project_access(db, project_id, current_user)
     project = await get_project_or_404(db, project_id)
 
     update_data = project_update.model_dump(exclude_unset=True)
@@ -328,7 +415,12 @@ async def update_project(
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_project(project_id: str, db: AsyncSession = Depends(get_db_session)):
+async def delete_project(
+    project_id: str,
+    db: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
+):
+    await _assert_project_access(db, project_id, current_user)
     project = await get_project_or_404(db, project_id)
 
     await db.delete(project)

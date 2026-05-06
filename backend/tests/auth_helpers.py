@@ -5,7 +5,7 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 
 TEST_PASSWORD = "SecurePass123!"
-TEST_ROLE = "admin"
+TEST_ROLE = "developer"
 
 
 def bootstrap_authenticated_client(client: TestClient, *, email: str | None = None, role: str = TEST_ROLE) -> dict[str, str]:

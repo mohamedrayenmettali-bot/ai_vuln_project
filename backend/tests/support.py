@@ -17,7 +17,6 @@ from app.db.models.password_reset_token import PasswordResetToken
 from app.db.models.project import Project, ProjectStatus
 from app.db.models.project_setting import ProjectIntegrationSetting
 from app.db.models.user import User
-from app.db.models.user_project_assignment import UserProjectAssignment
 from app.db.session import configure_database, get_sessionmaker
 from app.schemas.base import BaseModelPredictions, PredictionResult
 from app.services.predictor import PredictorService
@@ -290,12 +289,3 @@ async def get_finding_events(finding_id: str) -> list[FindingEvent]:
             .order_by(FindingEvent.created_at.asc())
         )
         return list(result.scalars().all())
-
-
-async def assign_user_to_project(user_id: str, project_id: str) -> UserProjectAssignment:
-    async with get_sessionmaker()() as db:
-        assignment = UserProjectAssignment(user_id=user_id, project_id=project_id)
-        db.add(assignment)
-        await db.commit()
-        await db.refresh(assignment)
-        return assignment

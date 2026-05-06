@@ -146,16 +146,14 @@ async def read_findings(
                 )
         query = query.where(Finding.project_id == project_id)
     elif current_user.role != "admin":
-        # Limit to only findings in the user's assigned projects.
-        assigned = await db.execute(
-            select(UserProjectAssignment.project_id).where(
-                UserProjectAssignment.user_id == current_user.id
+        # Limit to only findings in the user's assigned projects via a subquery.
+        query = query.where(
+            Finding.project_id.in_(
+                select(UserProjectAssignment.project_id).where(
+                    UserProjectAssignment.user_id == current_user.id
+                )
             )
         )
-        accessible_ids = [row[0] for row in assigned.all()]
-        if not accessible_ids:
-            return []
-        query = query.where(Finding.project_id.in_(accessible_ids))
 
     query = query.order_by(Finding.created_at.asc(), Finding.id.asc()).offset(skip).limit(limit)
 

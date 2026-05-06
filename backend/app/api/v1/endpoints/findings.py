@@ -153,6 +153,8 @@ async def read_findings(
             )
         )
         accessible_ids = [row[0] for row in assigned.all()]
+        if not accessible_ids:
+            return []
         query = query.where(Finding.project_id.in_(accessible_ids))
 
     query = query.order_by(Finding.created_at.asc(), Finding.id.asc()).offset(skip).limit(limit)

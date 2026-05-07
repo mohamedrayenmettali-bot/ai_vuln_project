@@ -7,6 +7,7 @@ from app.db.models.project import Project
 from app.db.models.finding import Finding
 from app.db.models.project_setting import ProjectIntegrationSetting
 from app.db.models.user import User
+from app.db.models.user_project_assignment import UserProjectAssignment
 
 # This allows Alembic to import all models via app.db.models.Base
 __all__ = [
@@ -19,4 +20,5 @@ __all__ = [
     "Project",
     "ProjectIntegrationSetting",
     "User",
+    "UserProjectAssignment",
 ]

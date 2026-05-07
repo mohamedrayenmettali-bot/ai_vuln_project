@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import get_current_user
 from app.db.models.finding import Finding
 from app.db.models.finding_event import FindingEvent
+from app.db.models.user_project_assignment import UserProjectAssignment
 from app.db.session import get_db_session
 from app.schemas.auth import AuthUser
 from app.schemas.finding import FindingCreate, FindingUpdate, FindingOut
@@ -126,10 +127,34 @@ async def read_findings(
     skip: int = 0,
     limit: int = 100,
     db: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> list[dict[str, Any]]:
     query = select(Finding)
     if project_id:
+        # Enforce single-project access.
+        if current_user.role != "admin":
+            access = await db.execute(
+                select(UserProjectAssignment).where(
+                    UserProjectAssignment.user_id == current_user.id,
+                    UserProjectAssignment.project_id == project_id,
+                )
+            )
+            if access.scalars().first() is None:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You do not have access to this project.",
+                )
         query = query.where(Finding.project_id == project_id)
+    elif current_user.role != "admin":
+        # Limit to only findings in the user's assigned projects via a subquery.
+        query = query.where(
+            Finding.project_id.in_(
+                select(UserProjectAssignment.project_id).where(
+                    UserProjectAssignment.user_id == current_user.id
+                )
+            )
+        )
+
     query = query.order_by(Finding.created_at.asc(), Finding.id.asc()).offset(skip).limit(limit)
 
     result = await db.execute(query)
@@ -138,8 +163,24 @@ async def read_findings(
 
 
 @router.get("/{finding_id}")
-async def read_finding(finding_id: str, db: AsyncSession = Depends(get_db_session)) -> dict[str, Any]:
+async def read_finding(
+    finding_id: str,
+    db: AsyncSession = Depends(get_db_session),
+    current_user: AuthUser = Depends(get_current_user),
+) -> dict[str, Any]:
     finding = await _load_finding(db, finding_id)
+    if current_user.role != "admin":
+        access = await db.execute(
+            select(UserProjectAssignment).where(
+                UserProjectAssignment.user_id == current_user.id,
+                UserProjectAssignment.project_id == finding.project_id,
+            )
+        )
+        if access.scalars().first() is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have access to this project.",
+            )
     return serialize_finding(finding)
 
 
